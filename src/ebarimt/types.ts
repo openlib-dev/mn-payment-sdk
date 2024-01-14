@@ -1,4 +1,4 @@
-export type ebarimtbilltype = string;
+import { EbarimtBillType } from "./constants";
 
 export interface CreateEbarimtRequest {
   amount: string;
@@ -16,7 +16,7 @@ export interface CreateEbarimtRequest {
 export interface CreateEbarimtInput {
   customerNo: string;
   branchNo: string;
-  billType: ebarimtbilltype;
+  billType: EbarimtBillType;
   districtCode: string;
   stocks: StockInput[];
 }
