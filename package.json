@@ -1,0 +1,33 @@
+{
+  "name": "mn-payment-sdk",
+  "version": "1.0.0",
+  "description": "Монголын төлбөрийн хэрэгсэлүүд SDK",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openlib-dev/mn-payment-sdk.git"
+  },
+  "keywords": [
+    "Qpay",
+    "Ebarimt",
+    "Hipay",
+    "MongolChat",
+    "Pass",
+    "Socialpay",
+    "Golomt",
+    "Ecommerce",
+    "Mongpay",
+    "Storepay",
+    "Tokipay",
+    "SDKs"
+  ],
+  "author": "Batorgil Davaajantsan, Tuguldur Dembrel",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/openlib-dev/mn-payment-sdk/issues"
+  },
+  "homepage": "https://github.com/openlib-dev/mn-payment-sdk#readme"
+}
