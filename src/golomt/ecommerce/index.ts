@@ -1,4 +1,4 @@
-import { utils } from "./utils";
+import { utils } from "../utils";
 import { API } from "../../types";
 import {
   ECommerceInquiry,
