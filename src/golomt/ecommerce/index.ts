@@ -1,15 +1,22 @@
-import { utils } from "../../../utils/key";
+import { utils } from "./utils";
 import { API } from "../../types";
-import { ECommerceInvoiceCreate, ECommercePayByToken } from "./apis";
+import {
+  ECommerceInquiry,
+  ECommerceInvoiceCreate,
+  ECommercePayByToken,
+} from "./apis";
 import { Lang, PaymentMethod } from "./constants";
 import {
+  ByTokenRequest,
   ByTokenResponse,
   CreateInvoiceInput,
+  CreateInvoiceRequest,
   CreateInvoiceResponse,
+  InquiryRequest,
   InquiryResponse,
 } from "./types";
 
-export class Golomt {
+export default class GolomtEcommerce {
   private endpoint: string;
   private secret: string;
   private bearerToken: string;
@@ -72,7 +79,7 @@ export class Golomt {
       this.secret,
       `${amount}${transactionId}${token}`
     );
-    const request = {
+    const request: ByTokenRequest = {
       amount: amount.toString(),
       checksum: checksum,
       token: token,
@@ -104,14 +111,14 @@ export class Golomt {
       `${input.transactionId}${amount}${input.returnType}${input.callback}`
     );
 
-    const request = {
-      Amount: amount,
-      Checksum: checksum,
-      GenerateToken: this.boolToString(input.getToken),
-      Callback: input.callback,
-      TransactionID: input.transactionId,
-      ReturnType: input.returnType,
-      SocialDeeplink: this.boolToString(input.socialDeeplink),
+    const request: CreateInvoiceRequest = {
+      amount: amount,
+      checksum: checksum,
+      genToken: this.boolToString(input.getToken),
+      callback: input.callback,
+      transactionId: input.transactionId,
+      returnType: input.returnType,
+      socialDeeplink: this.boolToString(input.socialDeeplink),
     };
 
     const response = await this.httpRequestGolomtEcommerce(
@@ -122,19 +129,22 @@ export class Golomt {
 
     const responseData: CreateInvoiceResponse = response.data;
 
-    if (responseData.errorCode !== "000") {
-      throw new Error(responseData.errorDesc);
+    if (responseData.error !== "000") {
+      throw new Error(responseData.message);
     }
 
     return responseData;
   }
 
   public async inquiry(transactionId: string): Promise<InquiryResponse> {
-    const checksum = utils.GenerateHMAC(
+    const checksum = utils.generateHMAC(
       this.secret,
-      utils.AppendAsString(transactionId, transactionId)
+      `${transactionId}${transactionId}`
     );
-    const request = { Checksum: checksum, TransactionID: transactionId };
+    const request: InquiryRequest = {
+      checksum: checksum,
+      transactionId: transactionId,
+    };
 
     const response = await this.httpRequestGolomtEcommerce(
       request,
