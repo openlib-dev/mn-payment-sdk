@@ -1,9 +1,15 @@
 {
-  "name": "mn-payment-sdk",
-  "version": "1.0.0",
+  "name": "@openlib.dev/mn-payment-sdk",
+  "version": "0.0.1",
   "description": "Монголын төлбөрийн хэрэгсэлүүд SDK",
-  "main": "index.js",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
+    "build": "tsup",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -29,5 +35,10 @@
   "bugs": {
     "url": "https://github.com/openlib-dev/mn-payment-sdk/issues"
   },
-  "homepage": "https://github.com/openlib-dev/mn-payment-sdk#readme"
+  "homepage": "https://github.com/openlib-dev/mn-payment-sdk#readme",
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3"
+  }
 }
