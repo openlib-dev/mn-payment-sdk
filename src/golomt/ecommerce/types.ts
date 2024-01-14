@@ -56,7 +56,6 @@ export interface InquiryRequest {
 
 export interface ByTokenRequest {
   amount: string;
-  invoice: string;
   checksum: string;
   transactionId: string;
   token: string;
