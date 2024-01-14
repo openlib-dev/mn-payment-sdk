@@ -1,4 +1,5 @@
-import { fetchWithJson } from "../../utils";
+import { f2s, fetchWithJson } from "../../utils";
+import { EbarimtBillType } from "./constants";
 import {
   Stock,
   StockInput,
@@ -9,107 +10,106 @@ import {
   CheckResponse,
 } from "./types";
 
-export function float64ToString(f: number): string {
-  return f.toFixed(2);
-}
+export class Ebarimt {
+  private endpoint: string;
 
-export function stockInputToStock(input: StockInput[]): {
-  stocks: Stock[];
-  amount: number;
-  vat: number;
-  cityTax: number;
-} {
-  let amount = 0;
-  let vat = 0;
-  let cityTax = 0;
-  const stocks: Stock[] = [];
-
-  for (const v of input) {
-    amount += v.unitPrice * v.qty;
-    vat += v.vat;
-    cityTax += v.cityTax;
-
-    stocks.push({
-      code: v.code,
-      name: v.name,
-      qty: float64ToString(v.qty),
-      measureUnit: v.measureUnit,
-      unitPrice: float64ToString(v.unitPrice),
-      cityTax: float64ToString(v.cityTax),
-      vat: float64ToString(v.vat),
-      barCode: v.barCode,
-      totalAmount: float64ToString(v.unitPrice * v.qty),
-    });
+  constructor(endpoint: string) {
+    this.endpoint = endpoint;
   }
 
-  return { stocks, amount, vat, cityTax };
-}
+  private stockInputToStock(input: StockInput[]): {
+    stocks: Stock[];
+    amount: number;
+    vat: number;
+    cityTax: number;
+  } {
+    let amount = 0;
+    let vat = 0;
+    let cityTax = 0;
+    const stocks: Stock[] = [];
 
-export function createInputToRequestBody(
-  input: CreateEbarimtInput
-): CreateEbarimtRequest {
-  if (input.districtCode === "") {
-    input.districtCode = "34";
+    for (const v of input) {
+      amount += v.unitPrice * v.qty;
+      vat += v.vat;
+      cityTax += v.cityTax;
+
+      stocks.push({
+        code: v.code,
+        name: v.name,
+        qty: f2s(v.qty),
+        measureUnit: v.measureUnit,
+        unitPrice: f2s(v.unitPrice),
+        cityTax: f2s(v.cityTax),
+        vat: f2s(v.vat),
+        barCode: v.barCode,
+        totalAmount: f2s(v.unitPrice * v.qty),
+      });
+    }
+
+    return { stocks, amount, vat, cityTax };
   }
-  if (input.branchNo === "") {
-    input.branchNo = "001";
+
+  private createInputToRequestBody(
+    input: CreateEbarimtInput
+  ): CreateEbarimtRequest {
+    if (!input.districtCode) {
+      input.districtCode = "34";
+    }
+    if (!input.branchNo) {
+      input.branchNo = "001";
+    }
+
+    const { stocks, amount, vat, cityTax } = this.stockInputToStock(
+      input.stocks
+    );
+
+    return {
+      amount: f2s(amount),
+      vat: f2s(vat),
+      cashAmount: f2s(0),
+      nonCashAmount: f2s(amount),
+      cityTax: f2s(cityTax),
+      customerNo: input.customerNo,
+      billType: input.billType,
+      branchNo: input.branchNo,
+      districtCode: input.districtCode,
+      stocks,
+    };
   }
 
-  const { stocks, amount, vat, cityTax } = stockInputToStock(input.stocks);
+  async getNewEBarimt(
+    bodyRaw: CreateEbarimtInput
+  ): Promise<CreateEbarimtResponse> {
+    const body = this.createInputToRequestBody(bodyRaw);
 
-  return {
-    amount: float64ToString(amount),
-    vat: float64ToString(vat),
-    cashAmount: float64ToString(0),
-    nonCashAmount: float64ToString(amount),
-    cityTax: float64ToString(cityTax),
-    customerNo: input.customerNo,
-    billType: input.billType,
-    branchNo: input.branchNo,
-    districtCode: input.districtCode,
-    stocks: stocks,
-  };
-}
+    if (bodyRaw.billType === EbarimtBillType.Organization && !body.customerNo) {
+      throw new Error("CustomerNo is required");
+    }
+    const data: CreateEbarimtResponse = await fetchWithJson(
+      `${this.endpoint}/put`,
+      "POST",
+      body
+    );
 
-export async function getNewEBarimt(endpoint: string, bodyraw: CreateEbarimtInput): Promise<CreateEbarimtResponse> {
-	const body = createInputToRequestBody(bodyraw);
+    return data;
+  }
 
-	if (bodyraw.billType === 'EBarimtOrganizationType' && body.customerNo === '') {
-		throw new Error('CustomerNo is required');
-	}
+  async sendData(): Promise<void> {
+    await fetchWithJson(`${this.endpoint}/sendData`, "GET");
+  }
 
-	try {
-		return await fetchWithJson<CreateEbarimtResponse>(`${endpoint}/put`, 'POST', body);
-	} catch (error) {
-		throw error;
-	}
-}
+  async returnBill(billId: string, date: string): Promise<boolean> {
+    const data: ReturnBillResponse = await fetchWithJson(
+      `${this.endpoint}/returnBill`,
+      "POST",
+      { returnBillId: billId, date }
+    );
 
-export async function sendData(endpoint: string): Promise<void> {
-	try {
-		await fetchWithJson<void>(`${endpoint}/sendData`, 'GET');
-	} catch (error) {
-		throw error;
-	}
-}
+    return data.success;
+  }
 
-export async function returnBill(endpoint: string, billId: string, date: string): Promise<boolean> {
-	try {
-		const response = await fetchWithJson<ReturnBillResponse>(`${endpoint}/returnBill`, 'POST', {
-			returnBillId: billId,
-			date: date,
-		});
-
-		return response.success;
-	} catch (error) {
-		throw error;
-	}
-}
-
-export async function checkApi(endpoint: string): Promise<CheckResponse> {
-	try {
-		return await fetchWithJson<CheckResponse>(`${endpoint}/checkApi`, 'GET');
-	} catch (error) {
-		throw error;
-	}
+  async checkApi(): Promise<CheckResponse> {
+		const data: CheckResponse = await fetchWithJson(`${this.endpoint}/checkApi`, 'GET')
+    return data;
+  }
 }
