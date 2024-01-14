@@ -1,5 +1,11 @@
-import { f2s, fetchWithJson } from "../../utils";
+import { API } from "../types";
 import { EbarimtBillType } from "./constants";
+import {
+  EbarimtCheckAPI,
+  EbarimtPut,
+  EbarimtReturnBill,
+  EbarimtSendData,
+} from "./apis";
 import {
   Stock,
   StockInput,
@@ -85,9 +91,8 @@ export class Ebarimt {
     if (bodyRaw.billType === EbarimtBillType.Organization && !body.customerNo) {
       throw new Error("CustomerNo is required");
     }
-    const data: CreateEbarimtResponse = await fetchWithJson(
-      `${this.endpoint}/put`,
-      "POST",
+    const data: CreateEbarimtResponse = await httpRequestEbarimt(
+      EbarimtPut,
       body
     );
 
@@ -95,13 +100,12 @@ export class Ebarimt {
   }
 
   async sendData(): Promise<void> {
-    await fetchWithJson(`${this.endpoint}/sendData`, "GET");
+    await httpRequestEbarimt(EbarimtSendData);
   }
 
   async returnBill(billId: string, date: string): Promise<boolean> {
-    const data: ReturnBillResponse = await fetchWithJson(
-      `${this.endpoint}/returnBill`,
-      "POST",
+    const data: ReturnBillResponse = await httpRequestEbarimt(
+      EbarimtReturnBill,
       { returnBillId: billId, date }
     );
 
@@ -109,7 +113,30 @@ export class Ebarimt {
   }
 
   async checkApi(): Promise<CheckResponse> {
-		const data: CheckResponse = await fetchWithJson(`${this.endpoint}/checkApi`, 'GET')
+    const data: CheckResponse = await httpRequestEbarimt(EbarimtCheckAPI);
     return data;
   }
 }
+
+export async function httpRequestEbarimt<T>(
+  api: API,
+  body?: object
+): Promise<T> {
+  const response = await fetch(api.url, {
+    method: api.method,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! Status: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export const f2s = (f: number): string => {
+  return f.toFixed(2);
+};
