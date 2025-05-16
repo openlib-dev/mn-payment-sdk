@@ -9,7 +9,9 @@ import {
   MonpayCheckResponse,
   MonpayAccessToken,
   InvoiceType,
-  Bank
+  Bank,
+  DeeplinkCreateResponse,
+  DeeplinkCheckResponse
 } from './types';
 import {
   MonpayGenerateQr,
@@ -18,6 +20,8 @@ import {
   MonpayDeeplinkCheck,
   MonpayDeeplinkAuth
 } from './apis';
+import { HttpErrorHandler, PaymentError, PaymentErrorCode } from '../common/errors';
+import { API } from '../types';
 
 export class MonpayClient {
   private endpoint: string;
@@ -30,7 +34,7 @@ export class MonpayClient {
     this.accountId = config.accountId;
   }
 
-  private async httpRequest<T>(body: any, api: { url: string; method: string }, urlExt: string = ''): Promise<T> {
+  private async httpRequest<T>(body: any, api: API, urlExt: string = ''): Promise<T> {
     const config: AxiosRequestConfig = {
       method: api.method,
       url: this.endpoint + api.url + urlExt,
@@ -50,11 +54,8 @@ export class MonpayClient {
     try {
       const response = await axios(config);
       return response.data;
-    } catch (error: any) {
-      if (error.response?.data) {
-        throw new Error(error.response.data.error || error.response.data);
-      }
-      throw error;
+    } catch (error) {
+      HttpErrorHandler.handleError('monpay', error);
     }
   }
 
@@ -72,18 +73,40 @@ export class MonpayClient {
       expireTime: input.expireTime
     };
 
-    return this.httpRequest<MonpayQrResponse>(
+    const response = await this.httpRequest<MonpayQrResponse>(
       request,
       MonpayGenerateQr
     );
+
+    if (response.code !== 0) {
+      throw new PaymentError({
+        code: PaymentErrorCode.PAYMENT_FAILED,
+        message: response.info || 'Failed to generate QR',
+        provider: 'monpay',
+        requestId: input.referenceNumber
+      });
+    }
+
+    return response;
   }
 
-  async checkQr(uuid: string): Promise<MonpayResultQr> {
-    return this.httpRequest<MonpayResultQr>(
+  async checkQr(uuid: string): Promise<MonpayResultCheck> {
+    const response = await this.httpRequest<MonpayCheckResponse>(
       null,
       MonpayCheckQr,
       `?uuid=${uuid}`
     );
+
+    if (response.code !== 0) {
+      throw new PaymentError({
+        code: PaymentErrorCode.PAYMENT_FAILED,
+        message: response.info || 'Failed to check QR',
+        provider: 'monpay',
+        requestId: uuid
+      });
+    }
+
+    return response.result;
   }
 }
 
@@ -126,15 +149,12 @@ export class MonpayDeeplinkClient {
       const token = response.data as MonpayAccessToken;
       this.accessToken = token;
       return token;
-    } catch (error: any) {
-      if (error.response?.data) {
-        throw new Error(error.response.data.error || error.response.data);
-      }
-      throw error;
+    } catch (error) {
+      HttpErrorHandler.handleError('monpay', error);
     }
   }
 
-  private async httpRequest<T>(body: any, api: { url: string; method: string }, urlExt: string = ''): Promise<T> {
+  private async httpRequest<T>(body: any, api: API, urlExt: string = ''): Promise<T> {
     const auth = await this.getAccessToken();
 
     const config: AxiosRequestConfig = {
@@ -154,11 +174,8 @@ export class MonpayDeeplinkClient {
     try {
       const response = await axios(config);
       return response.data;
-    } catch (error: any) {
-      if (error.response?.data) {
-        throw new Error(error.response.data.error || error.response.data);
-      }
-      throw error;
+    } catch (error) {
+      HttpErrorHandler.handleError('monpay', error);
     }
   }
 
@@ -167,7 +184,7 @@ export class MonpayDeeplinkClient {
     description: string,
     type: InvoiceType = InvoiceType.PURCHASE,
     bank: Bank = Bank.KHANBANK
-  ): Promise<MonpayResultCheck> {
+  ): Promise<DeeplinkCreateResponse> {
     const request = {
       amount,
       description,
@@ -175,17 +192,39 @@ export class MonpayDeeplinkClient {
       bank
     };
 
-    return this.httpRequest<MonpayResultCheck>(
+    const response = await this.httpRequest<DeeplinkCreateResponse>(
       request,
       MonpayDeeplinkCreate
     );
+
+    if (response.intCode !== 0) {
+      throw new PaymentError({
+        code: PaymentErrorCode.PAYMENT_FAILED,
+        message: response.info || 'Failed to create invoice',
+        provider: 'monpay',
+        requestId: response.result.id.toString()
+      });
+    }
+
+    return response;
   }
 
-  async checkInvoice(invoiceId: string): Promise<MonpayCheckResponse> {
-    return this.httpRequest<MonpayCheckResponse>(
+  async checkInvoice(invoiceId: string): Promise<DeeplinkCheckResponse> {
+    const response = await this.httpRequest<DeeplinkCheckResponse>(
       null,
       MonpayDeeplinkCheck,
       invoiceId
     );
+
+    if (response.intCode !== 0) {
+      throw new PaymentError({
+        code: PaymentErrorCode.PAYMENT_FAILED,
+        message: response.info || 'Failed to check invoice',
+        provider: 'monpay',
+        requestId: invoiceId
+      });
+    }
+
+    return response;
   }
 } 

@@ -23,6 +23,12 @@ import {
   QPayInvoiceGet,
   QPayInvoiceCancel
 } from './apis';
+import { HttpErrorHandler, PaymentError, PaymentErrorCode } from '../common/errors';
+import { API } from '../types';
+
+const MAX_RETRIES = 3;
+const TIMEOUT_MS = 30000; // 30 seconds
+const RETRY_DELAY_MS = 1000; // 1 second
 
 export class QpayClient {
   private endpoint: string;
@@ -43,31 +49,78 @@ export class QpayClient {
     this.loginObject = null;
   }
 
-  private async httpRequest<T>(body: any, api: { url: string; method: string }, urlExt: string = ''): Promise<T> {
-    const authObj = await this.authQpayV2();
-    this.loginObject = authObj;
+  private async sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 
-    const config: AxiosRequestConfig = {
-      method: api.method,
-      url: this.endpoint + api.url + urlExt,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.loginObject.accessToken}`
+  private async makeRequest<T>(config: AxiosRequestConfig): Promise<T> {
+    let lastError: any;
+    
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`[QPayClient] Making ${config.method} request to ${config.url} (Attempt ${attempt}/${MAX_RETRIES})`);
+        const response = await axios(config);
+        const data = response.data;
+
+        if (data.error) {
+          throw new PaymentError({
+            code: PaymentErrorCode.PAYMENT_FAILED,
+            message: data.error || 'Payment failed',
+            provider: 'qpay',
+            requestId: data.id || data.error
+          });
+        }
+
+        console.log(`[QPayClient] Successfully completed ${config.method} request to ${config.url}`);
+        return data;
+      } catch (error: any) {
+        lastError = error;
+        
+        // Don't retry if it's a business logic error
+        if (error instanceof PaymentError) {
+          throw error;
+        }
+
+        // Check if we should retry
+        const isRetryable = error.code === 'ECONNABORTED' || // Timeout
+                          error.code === 'ECONNRESET' || // Connection reset
+                          error.code === 'ETIMEDOUT' || // Connection timeout
+                          (error.response && error.response.status >= 500); // Server errors
+
+        if (!isRetryable || attempt === MAX_RETRIES) {
+          break;
+        }
+
+        console.log(`[QPayClient] Request failed, retrying in ${RETRY_DELAY_MS}ms... (Error: ${error.message})`);
+        await this.sleep(RETRY_DELAY_MS * attempt); // Exponential backoff
       }
-    };
-
-    if (body) {
-      config.data = body;
     }
 
+    HttpErrorHandler.handleError('qpay', lastError);
+  }
+
+  private async httpRequest<T>(body: any, api: API, urlExt: string = ''): Promise<T> {
     try {
-      const response = await axios(config);
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.data) {
-        throw new Error(error.response.data.error || error.response.data);
+      const authObj = await this.authQpayV2();
+      this.loginObject = authObj;
+
+      const config: AxiosRequestConfig = {
+        method: api.method,
+        url: this.endpoint + api.url + urlExt,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.loginObject.accessToken}`
+        },
+        timeout: TIMEOUT_MS
+      };
+
+      if (body) {
+        config.data = body;
       }
-      throw error;
+
+      return this.makeRequest<T>(config);
+    } catch (error) {
+      HttpErrorHandler.handleError('qpay', error);
     }
   }
 
@@ -82,26 +135,36 @@ export class QpayClient {
       }
     }
 
-    const config: AxiosRequestConfig = {
-      method: QPayAuthToken.method,
-      url: this.endpoint + QPayAuthToken.url,
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      auth: {
-        username: this.username,
-        password: this.password
-      }
-    };
-
     try {
+      const config: AxiosRequestConfig = {
+        method: QPayAuthToken.method,
+        url: this.endpoint + QPayAuthToken.url,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        auth: {
+          username: this.username,
+          password: this.password
+        },
+        timeout: TIMEOUT_MS
+      };
+
+      console.log(`[QPayClient] Making authentication request (Attempt 1/1)`);
       const response = await axios(config);
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.data) {
-        throw new Error(error.response.data.error || error.response.data);
+      const data = response.data;
+
+      if (data.error) {
+        throw new PaymentError({
+          code: PaymentErrorCode.UNAUTHORIZED,
+          message: data.error || 'Authentication failed',
+          provider: 'qpay'
+        });
       }
-      throw error;
+
+      console.log(`[QPayClient] Successfully authenticated`);
+      return data;
+    } catch (error) {
+      HttpErrorHandler.handleError('qpay', error);
     }
   }
 

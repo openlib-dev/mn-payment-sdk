@@ -1,9 +1,9 @@
-export const KhaanOrderRegister = {
+export const KhanOrderRegister = {
   url: '/register.do',
   method: 'POST'
 } as const;
 
-export const KhaanOrderStatus = {
+export const KhanOrderStatus = {
   url: '/getOrderStatus.do',
   method: 'POST'
 } as const; 

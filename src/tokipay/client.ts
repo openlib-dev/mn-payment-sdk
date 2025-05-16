@@ -26,6 +26,12 @@ import {
   TokipayPhoneRequest,
   TokipayTransactionStatus
 } from './apis';
+import { API } from '../types';
+import { HttpErrorHandler, PaymentError, PaymentErrorCode } from '../common/errors';
+
+const MAX_RETRIES = 3;
+const TIMEOUT_MS = 30000; // 30 seconds
+const RETRY_DELAY_MS = 1000; // 1 second
 
 export class TokipayClient {
   private endpoint: string;
@@ -48,7 +54,62 @@ export class TokipayClient {
     this.appSchemaIos = config.appSchemaIos;
   }
 
-  private async httpRequestPos<T>(body: any, api: { url: string; method: string }, urlExt: string = ''): Promise<T> {
+  private async sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  private async makeRequest<T>(config: AxiosRequestConfig, provider: string): Promise<T> {
+    let lastError: any;
+    
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`[TokipayClient] Making ${config.method} request to ${config.url} (Attempt ${attempt}/${MAX_RETRIES})`);
+        const response = await axios(config);
+        const data = response.data;
+
+        if (data.error) {
+          const errorCode = data.error.toLowerCase().includes('unauthorized') || 
+                          data.error.toLowerCase().includes('auth') ? 
+                          PaymentErrorCode.UNAUTHORIZED : 
+                          PaymentErrorCode.PAYMENT_FAILED;
+
+          throw new PaymentError({
+            code: errorCode,
+            message: `${data.error}: ${data.message}`,
+            provider,
+            requestId: data.id || data.error
+          });
+        }
+
+        console.log(`[TokipayClient] Successfully completed ${config.method} request to ${config.url}`);
+        return data;
+      } catch (error: any) {
+        lastError = error;
+        
+        // Don't retry if it's a business logic error
+        if (error instanceof PaymentError) {
+          throw error;
+        }
+
+        // Check if we should retry
+        const isRetryable = error.code === 'ECONNABORTED' || // Timeout
+                          error.code === 'ECONNRESET' || // Connection reset
+                          error.code === 'ETIMEDOUT' || // Connection timeout
+                          (error.response && error.response.status >= 500); // Server errors
+
+        if (!isRetryable || attempt === MAX_RETRIES) {
+          break;
+        }
+
+        console.log(`[TokipayClient] Request failed, retrying in ${RETRY_DELAY_MS}ms... (Error: ${error.message})`);
+        await this.sleep(RETRY_DELAY_MS * attempt); // Exponential backoff
+      }
+    }
+
+    HttpErrorHandler.handleError(provider, lastError);
+  }
+
+  private async httpRequestPos<T>(body: any, api: API, urlExt: string = ''): Promise<T> {
     const config: AxiosRequestConfig = {
       method: api.method,
       url: this.endpoint + api.url + urlExt,
@@ -57,25 +118,18 @@ export class TokipayClient {
         'api_key': 'spos_pay_v4',
         'im_api_key': this.imApiKey,
         'Content-Type': 'application/json'
-      }
+      },
+      timeout: TIMEOUT_MS
     };
 
     if (body) {
       config.data = body;
     }
 
-    try {
-      const response = await axios(config);
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.data) {
-        throw new Error(error.response.data.error + ':' + error.response.data.message);
-      }
-      throw error;
-    }
+    return this.makeRequest<T>(config, 'tokipay');
   }
 
-  private async httpRequestThirdParty<T>(body: any, api: { url: string; method: string }, urlExt: string = ''): Promise<T> {
+  private async httpRequestThirdParty<T>(body: any, api: API, urlExt: string = ''): Promise<T> {
     const config: AxiosRequestConfig = {
       method: api.method,
       url: this.endpoint + api.url + urlExt,
@@ -83,22 +137,15 @@ export class TokipayClient {
         'Authorization': this.authorization,
         'api_key': 'third_party_pay',
         'Content-Type': 'application/json'
-      }
+      },
+      timeout: TIMEOUT_MS
     };
 
     if (body) {
       config.data = body;
     }
 
-    try {
-      const response = await axios(config);
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.data) {
-        throw new Error(error.response.data.error + ':' + error.response.data.message);
-      }
-      throw error;
-    }
+    return this.makeRequest<T>(config, 'tokipay');
   }
 
   async paymentQr(input: TokipayPaymentInput): Promise<TokipayPaymentResponse> {

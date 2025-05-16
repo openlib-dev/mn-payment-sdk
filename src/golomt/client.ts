@@ -17,6 +17,8 @@ import {
   ECommerceInquiry,
   ECommercePayByToken
 } from './apis';
+import { API } from '../types';
+import { HttpErrorHandler, PaymentError, PaymentErrorCode } from '../common/errors';
 
 export class GolomtClient {
   private endpoint: string;
@@ -66,7 +68,12 @@ export class GolomtClient {
     const response = await this.httpRequestGolomtEcommerce<ByTokenResponse>(request, ECommercePayByToken);
     
     if (response.errorCode !== '000') {
-      throw new Error(response.errorDesc);
+      throw new PaymentError({
+        code: PaymentErrorCode.PAYMENT_FAILED,
+        message: response.errorDesc,
+        provider: 'golomt',
+        requestId: transactionId
+      });
     }
 
     return response;
@@ -111,13 +118,18 @@ export class GolomtClient {
     const response = await this.httpRequestGolomtEcommerce<InquiryResponse>(request, ECommerceInquiry);
     
     if (response.errorCode !== '000') {
-      throw new Error(response.errorDesc);
+      throw new PaymentError({
+        code: PaymentErrorCode.PAYMENT_FAILED,
+        message: response.errorDesc,
+        provider: 'golomt',
+        requestId: transactionId
+      });
     }
 
     return response;
   }
 
-  private async httpRequestGolomtEcommerce<T>(body: any, api: { url: string; method: string }): Promise<T> {
+  private async httpRequestGolomtEcommerce<T>(body: any, api: API): Promise<T> {
     try {
       const response = await axios({
         method: api.method,
@@ -130,11 +142,8 @@ export class GolomtClient {
       });
 
       return response.data;
-    } catch (error: any) {
-      if (error.response?.data) {
-        throw new Error(error.response.data.message || error.message);
-      }
-      throw error;
+    } catch (error) {
+      HttpErrorHandler.handleError('golomt', error);
     }
   }
 } 

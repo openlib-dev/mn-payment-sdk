@@ -9,5 +9,3 @@ export * from './storepay';
 export * from './tokipay';
 export * from './monpay';
 export * from './tdb-cg';
-// export * from './qpay-auth';
-// export * from './qpay-wechat';
