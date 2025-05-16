@@ -1,3 +1,12 @@
+export interface QPayConfig {
+  username: string;
+  password: string;
+  endpoint: string;
+  callback: string;
+  invoiceCode: string;
+  merchantId: string;
+}
+
 export interface QPayLoginResponse {
   tokenType: string;
   refreshToken: string;
@@ -36,37 +45,21 @@ export interface Deeplink {
 }
 
 export interface QPaySimpleInvoiceResponse {
-  invoiceID: string;
-  qpayShortUrl: string;
-  qrText: string;
+  invoiceId: string;
+  qrData: string;
   qrImage: string;
-  urls: Deeplink[];
+  urls: {
+    web: string;
+    deeplink: string;
+  };
 }
 
 export interface QPayInvoiceGetResponse {
-  allowExceed: boolean;
-  allowPartial: boolean;
-  callbackUrl: string;
-  discountAmount: number;
-  enableExpiry: boolean;
-  expiryDate: string;
-  grossAmount: number;
-  inputs: QPayInput[];
-  invoiceDescription: string;
-  invoiceDueDate: null;
-  invoiceID: string;
-  invoiceStatus: string;
-  lines: QPayLine[];
-  maximumAmount: number;
-  minimumAmount: number;
-  note: string;
-  senderBranchCode: string;
-  senderBranchData: string;
-  senderInvoiceNo: string;
-  surchargeAmount: number;
-  taxAmount: number;
-  totalAmount: number;
-  transactions: QPayTransaction[];
+  invoiceId: string;
+  status: string;
+  amount: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface QPayInput {}
@@ -87,29 +80,20 @@ export interface QPayLine {
 export interface QPayPaymentCheckRequest {
   objectID: string;
   objectType: string;
-  offset: QPayOffset;
-}
-
-export interface QPayOffset {
-  pageNumber: number;
-  pageLimit: number;
+  offset: {
+    pageLimit: number;
+    pageNumber: number;
+  };
 }
 
 export interface QPayPaymentCheckResponse {
+  rows: Array<{
+    paymentId: string;
+    status: string;
+    amount: number;
+    createdAt: string;
+  }>;
   count: number;
-  paidAmount: number;
-  rows: QPayRow[];
-}
-
-export interface QPayRow {
-  paymentID: string;
-  paymentStatus: string;
-  paymentDate: null;
-  paymentFee: string;
-  paymentAmount: string;
-  paymentCurrency: string;
-  paymentWallet: string;
-  transactionType: string;
 }
 
 export interface QPayPaymentCancelRequest {
@@ -122,5 +106,8 @@ export interface QPayPaymentListRequest {
   merchantBranchCode: string;
   merchantTerminalCode: string;
   merchantStaffCode: string;
-  offset: QPayOffset;
+  offset: {
+    pageLimit: number;
+    pageNumber: number;
+  };
 }

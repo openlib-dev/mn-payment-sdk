@@ -1,21 +1,21 @@
 import { API } from "../types";
 
-export const EbarimtSendData: API = {
+export const EbarimtSendData = {
   url: "/sendData",
-  method: "GET",
-};
+  method: "GET"
+} as const;
 
-export const EbarimtPut: API = {
+export const EbarimtPut = {
   url: "/put",
-  method: "POST",
-};
+  method: "POST"
+} as const;
 
-export const EbarimtReturnBill: API = {
+export const EbarimtReturnBill = {
   url: "/returnBill",
-  method: "POST",
-};
+  method: "POST"
+} as const;
 
-export const EbarimtCheckAPI: API = {
+export const EbarimtCheckApi = {
   url: "/checkApi",
-  method: "GET",
-};
+  method: "GET"
+} as const;

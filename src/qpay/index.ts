@@ -255,3 +255,7 @@ export class QPay {
     return response.json();
   }
 }
+
+export * from './types';
+export * from './client';
+export * from './apis';

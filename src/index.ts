@@ -1,1 +1,13 @@
-export { default as GolomtEcommerce } from "./golomt/ecommerce";
+export * from './qpay';
+export * from './golomt';
+export * from './ebarimt';
+export * from './hipay';
+export * from './mongolchat';
+export * from './pass';
+export * from './socialpay';
+export * from './storepay';
+export * from './tokipay';
+export * from './monpay';
+export * from './tdb-cg';
+// export * from './qpay-auth';
+// export * from './qpay-wechat';

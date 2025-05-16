@@ -1,5 +1,3 @@
-import { API } from "../types";
-
 export const QPayAuthToken = {
   url: '/auth/token',
   method: 'POST'
@@ -48,4 +46,4 @@ export const QPayInvoiceGet = {
 export const QPayInvoiceCancel = {
   url: '/invoice/',
   method: 'DELETE'
-} as const;
+} as const; 

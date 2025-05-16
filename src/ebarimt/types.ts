@@ -8,6 +8,7 @@ export interface CreateEbarimtRequest {
   cityTax: string;
   customerNo: string;
   billType: string;
+  billIdSuffix: string;
   branchNo: string;
   districtCode: string;
   stocks: Stock[];
@@ -16,6 +17,7 @@ export interface CreateEbarimtRequest {
 export interface CreateEbarimtInput {
   customerNo: string;
   branchNo: string;
+  billIdSuffix: string;
   billType: EbarimtBillType;
   districtCode: string;
   stocks: StockInput[];
@@ -67,10 +69,12 @@ export interface CreateEbarimtResponse {
   success: boolean;
   message: string;
   errorCode: number;
+  warningMsg: string;
+  lotteryWarningMsg: string;
 }
 
 export interface CheckAPIItem {
-  message: string | null;
+  message?: string;
   success: boolean;
 }
 
@@ -83,5 +87,9 @@ export interface CheckResponse {
 
 export interface ReturnBillResponse {
   success: boolean;
+}
+
+export interface EbarimtConfig {
+  endpoint: string;
 }
 
